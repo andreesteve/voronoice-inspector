@@ -11,6 +11,8 @@ mod voronoi_mesh_generator;
 use pipeline::*;
 use voronoi_mesh_generator::*;
 
+const STRING_UI_COUNT: usize = 8;
+
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -124,12 +126,9 @@ fn setup(
         material: materials.add(Color::NONE.into()),
         ..Default::default()
     }).with_children(|parent| {
-        add_display_lines(parent, &font_handle);
-        add_display_lines(parent, &font_handle);
-        add_display_lines(parent, &font_handle);
-        add_display_lines(parent, &font_handle);
-        add_display_lines(parent, &font_handle);
-        add_display_lines(parent, &font_handle);
+        for _i in 0..STRING_UI_COUNT {
+            add_display_lines(parent, &font_handle);
+        }
     });
 
     commands
@@ -555,57 +554,18 @@ fn handle_input(
         println!("{:#?}", state.voronoi);
     }
 
-    let updates: [String; 5] = [
+    let updates: [String; STRING_UI_COUNT] = [
         format!("[C] Clip mode: {:?}", state.clip_behavior),
         format!("[P] Voronoi mesh render mode: {:?}", state.voronoi_opts.voronoi_topoloy),
+        format!("[O] Delauney mesh render mode: {:?}", state.voronoi_opts.delauney_topoloy),
         format!("[PgUp/PgDown] Bounding box: {:.2}", state.bounding_box.width()),
         format!("[Home] Site type: {:?}", state.site_type),
-        format!("# of Sites: {}", state.voronoi.as_ref().map_or(0, |v| v.sites().len())),
+        format!("[ArrowUp/ArrowDown/G/MouseClick] # of Sites: {}", state.voronoi.as_ref().map_or(0, |v| v.sites().len())),
+        "[W/S/R] Camera Movement".to_string(),
+        "[L] Lloyd relaxation".to_string(),
     ];
 
     for (mut text, update) in query_text.iter_mut().zip(&updates) {
         text.value = update.clone();
     }
 }
-
-// Created 10000000 random points in 2074149 micrseconds
-// delaunator: 10000000 points processed in 10,111,821 micrseconds
-// Created 10000000 random points in 2053817 micrseconds
-// voronoi: 10000000 points processed in 6,6532,576 micrseconds
-
-// Created 10000 random points in 2066 micrseconds
-// delaunator: 10000 points processed in 3796 micrseconds
-// Created 10000 random points in 2048 micrseconds
-// voronoi: 10000 points processed in 32993 micrseconds
-// [andre@scout voronoi]$ cargo run
-//     Finished dev [unoptimized + debuginfo] target(s) in 0.01s
-//      Running `target/debug/terrain`
-// Created 10000 random points in 2075 micrseconds
-// delaunator: 10000 points processed in 3710 micrseconds
-// Created 10000 random points in 2050 micrseconds
-// voronoi: 10000 points processed in 31867 micrseconds
-// [andre@scout voronoi]$ cargo run
-//    Compiling terrain v0.1.0 (/home/andre/projects/learn/rust/voronoi)
-//     Finished dev [unoptimized + debuginfo] target(s) in 0.29s
-//      Running `target/debug/terrain`
-// Created 100000 random points in 20829 micrseconds
-// delaunator: 100000 points processed in 52593 micrseconds
-// Created 100000 random points in 20560 micrseconds
-// voronoi: 100000 points processed in 415524 micrseconds
-// [andre@scout voronoi]$ cargo run
-//    Compiling terrain v0.1.0 (/home/andre/projects/learn/rust/voronoi)
-//     Finished dev [unoptimized + debuginfo] target(s) in 0.28s
-//      Running `target/debug/terrain`
-// Created 1000000 random points in 209930 micrseconds
-// delaunator: 1000000 points processed in 744958 micrseconds
-// Created 1000000 random points in 206342 micrseconds
-// voronoi: 1000000 points processed in 5113890 micrseconds
-// [andre@scout voronoi]$ cargo run
-//    Compiling terrain v0.1.0 (/home/andre/projects/learn/rust/voronoi)
-//     Finished dev [unoptimized + debuginfo] target(s) in 0.28s
-//      Running `target/debug/terrain`
-// Created 10000000 random points in 2074149 micrseconds
-// delaunator: 10000000 points processed in 10111821 micrseconds
-// Created 10000000 random points in 2053817 micrseconds
-// voronoi: 10000000 points processed in 66532576 micrseconds
-// [andre@scout voronoi]$ cargo run --release
