@@ -1,11 +1,15 @@
 use std::{collections::LinkedList, time::Instant};
-
 use bevy::{prelude::*, render::{camera::{Camera, PerspectiveProjection}, mesh::Indices, pipeline::PrimitiveTopology}};
+use rand::Rng;
+use voronoice::*;
 
 mod pipeline;
+mod into_triangle_list;
+mod utils;
+mod voronoi_mesh_generator;
 
 use pipeline::*;
-use voronoice::*;
+use voronoi_mesh_generator::*;
 
 fn main() {
     App::build()
@@ -179,7 +183,7 @@ fn get_bounding_box(size: f32) -> Mesh {
 }
 
 fn get_closest_site(voronoi: &Voronoi, pos: Vec3) -> Option<(usize, f32)> {
-    voronoi.sites.iter().enumerate().map(|(i, p)| (i, Vec3::new(p.y as f32, 0.0, p.x as f32).distance(pos)))
+    voronoi.sites().iter().enumerate().map(|(i, p)| (i, Vec3::new(p.y as f32, 0.0, p.x as f32).distance(pos)))
         .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
 }
 
@@ -232,6 +236,16 @@ fn move_camera(input: Res<Input<KeyCode>>, mut camera_query: Query<&mut Transfor
             t.translation.y = CAMERA_Y;
         }
     }
+}
+
+fn create_random_sites(size: usize, bounding_box: &BoundingBox) -> Vec<Point> {
+    let mut rng = rand::thread_rng();
+    let x_range = rand::distributions::Uniform::new(-bounding_box.width(), bounding_box.width());
+    let y_range = rand::distributions::Uniform::new(-bounding_box.height(), bounding_box.height());
+
+    (0..size)
+        .map(|_| Point { x: rng.sample(x_range), y: rng.sample(y_range) })
+        .collect()
 }
 
 #[derive(Debug)]
@@ -316,18 +330,12 @@ impl State {
     fn new_voronoi(&mut self, size: usize) {
         let start = Instant::now();
         self.size = size;
-        //let range = (-1.0, 1.0);
-        //builder.random_sites(size, range, range);
-        //builder.generate_circle_sites(size);
-        //builder.generate_square_sites(2, 2);
-        //builder.generate_triangle_sites();
         let mut builder = self.new_builder();
-        let range = (-self.bounding_box.width() / 2.0, self.bounding_box.width() / 2.0);
 
         builder = match self.site_type {
-            SiteType::Random => builder.generate_random_sites(self.size, range, range),
-            SiteType::Circle => builder.generate_circle_sites(self.size),
-            SiteType::Square => builder.generate_square_sites(self.size, self.size),
+            SiteType::Random => builder.set_sites(create_random_sites(size, &self.bounding_box)),
+            SiteType::Circle => builder.generate_circle_sites(self.size, 1.0),
+            SiteType::Square => builder.generate_square_sites(self.size),
         };
 
         let voronoi = builder.build();
@@ -339,14 +347,14 @@ impl State {
     fn refresh(&mut self) {
         if let Some(v) = self.voronoi.as_ref() {
             let vv = self.new_builder()
-                .set_sites(v.sites.clone())
+                .set_sites(v.sites().clone())
                 .build();
             self.replace(vv);
         }
     }
 
     fn add_site_to_voronoi(&mut self, site: Point) {
-        let mut sites = self.voronoi.as_ref().unwrap().sites.clone();
+        let mut sites = self.voronoi.as_ref().unwrap().sites().clone();
         sites.push(site);
 
         let v = self.new_builder()
@@ -356,7 +364,7 @@ impl State {
     }
 
     fn remove_site_to_voronoi(&mut self, site_index: usize) {
-        let mut sites = self.voronoi.as_ref().unwrap().sites.clone();
+        let mut sites = self.voronoi.as_ref().unwrap().sites().clone();
         sites.remove(site_index);
 
         let v = self.new_builder()
@@ -458,7 +466,7 @@ fn handle_input(
         let point = Point { x: mouse.world_pos.z as f64, y: mouse.world_pos.x  as f64 };
 
         let (closest_site, num_of_sites) = if let Some(voronoi) = state.voronoi.as_ref() {
-            (get_closest_site(voronoi, mouse.world_pos), voronoi.sites.len())
+            (get_closest_site(voronoi, mouse.world_pos), voronoi.sites().len())
         } else {
             (None, 0)
         };
@@ -484,7 +492,7 @@ fn handle_input(
             if let Some((site, dist)) = closest_site {
                 if dist < 0.2 {
                     if let Some(v) = state.voronoi.as_ref() {
-                        let cell = v.get_cell(site);
+                        let cell = v.cell(site);
                         println!("{:#?}", cell);
                     } else {
                         println!("No voronoi");
@@ -552,7 +560,7 @@ fn handle_input(
         format!("[P] Voronoi mesh render mode: {:?}", state.voronoi_opts.voronoi_topoloy),
         format!("[PgUp/PgDown] Bounding box: {:.2}", state.bounding_box.width()),
         format!("[Home] Site type: {:?}", state.site_type),
-        format!("# of Sites: {}", state.voronoi.as_ref().map_or(0, |v| v.sites.len())),
+        format!("# of Sites: {}", state.voronoi.as_ref().map_or(0, |v| v.sites().len())),
     ];
 
     for (mut text, update) in query_text.iter_mut().zip(&updates) {

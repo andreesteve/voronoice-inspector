@@ -18,7 +18,7 @@ pub struct VoronoiMeshGenerator<'a> {
 impl VoronoiMeshGenerator<'_> {
     #[allow(dead_code)]
     pub fn build_circumcenters_mesh(&self) -> Mesh {
-        let positions: Vec<[f32; 3]> = utils::to_f32_vec(&self.voronoi.circumcenters);
+        let positions: Vec<[f32; 3]> = utils::to_f32_vec(self.voronoi.vertices());
         let num_of_vertices = positions.len();
         let normals: Vec<[f32; 3]> = vec![[0.0, 1.0, 0.0]; num_of_vertices];
         let uvs: Vec<[f32; 2]> = vec![[0.0, 0.0]; num_of_vertices];
@@ -39,7 +39,7 @@ impl VoronoiMeshGenerator<'_> {
     }
 
     pub fn build_delauney_mesh(&self) -> Mesh {
-        let positions: Vec<[f32; 3]> = utils::to_f32_vec(&self.voronoi.sites);
+        let positions: Vec<[f32; 3]> = utils::to_f32_vec(self.voronoi.sites());
         let num_of_vertices = positions.len();
         let normals: Vec<[f32; 3]> = vec![[0.0, 1.0, 0.0]; num_of_vertices];
         let uvs: Vec<[f32; 2]> = vec![[0.0, 0.0]; num_of_vertices];
@@ -54,15 +54,16 @@ impl VoronoiMeshGenerator<'_> {
         // println!("Half-edge for {} is {}", e, self.voronoi.triangulation.halfedges[e]);
 
         let mut indices: Vec<u32> = vec![];
-        for t in 0..self.voronoi.number_of_triangles() {
-            indices.push(self.voronoi.triangulation.triangles[3 * t] as u32);
-            indices.push(self.voronoi.triangulation.triangles[3 * t + 1] as u32);
+        let triangles = self.voronoi.delauney_triangles();
+        for t in 0..(triangles.len() / 3) {
+            indices.push(triangles[3 * t] as u32);
+            indices.push(triangles[3 * t + 1] as u32);
 
-            indices.push(self.voronoi.triangulation.triangles[3 * t + 1] as u32);
-            indices.push(self.voronoi.triangulation.triangles[3 * t + 2] as u32);
+            indices.push(triangles[3 * t + 1] as u32);
+            indices.push(triangles[3 * t + 2] as u32);
 
-            indices.push(self.voronoi.triangulation.triangles[3 * t + 2] as u32);
-            indices.push(self.voronoi.triangulation.triangles[3 * t] as u32);
+            indices.push(triangles[3 * t + 2] as u32);
+            indices.push(triangles[3 * t] as u32);
         }
 
         let mut mesh = Mesh::new(self.topology);
@@ -75,7 +76,7 @@ impl VoronoiMeshGenerator<'_> {
     }
 
     pub fn build_voronoi_mesh(&self) -> Mesh {
-        let positions: Vec<[f32; 3]> = utils::to_f32_vec(&self.voronoi.circumcenters);
+        let positions: Vec<[f32; 3]> = utils::to_f32_vec(self.voronoi.vertices());
         let num_of_vertices = positions.len();
         let normals: Vec<[f32; 3]> = vec![[0.0, 1.0, 0.0]; num_of_vertices];
         let uvs: Vec<[f32; 2]> = vec![[0.0, 0.0]; num_of_vertices];
@@ -118,8 +119,8 @@ impl VoronoiMeshGenerator<'_> {
 
                 //     HullBehavior::ExtendAndClose => {
                         // when hull is closed, all cells are closed
-                        self.voronoi.cells()
-                        .flat_map(|c| into_line_list_wrap(c.get_triangles()))
+                        self.voronoi.iter_cells()
+                        .flat_map(|c| into_line_list_wrap(c.iter_triangles()))
                         .map(|t| t as u32)
                         .collect::<Vec<u32>>()
                     //}
@@ -128,8 +129,8 @@ impl VoronoiMeshGenerator<'_> {
 
             PrimitiveTopology::PointList | PrimitiveTopology::TriangleList => {
                 // if cells on hull are not closed, they will not render correctly in this mode
-                self.voronoi.cells()
-                    .flat_map(|c| into_line_list(c.get_triangles()))
+                self.voronoi.iter_cells()
+                    .flat_map(|c| into_line_list(c.iter_triangles()))
                     .map(|t| t as u32)
                     .into_triangle_list()
                     .collect::<Vec<u32>>()
