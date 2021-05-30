@@ -49,7 +49,7 @@ impl VoronoiMeshGenerator<'_> {
             .collect();
 
         let mut indices: Vec<u32> = vec![];
-        let triangles = self.voronoi.delauney_triangles();
+        let triangles = self.voronoi.delaunay_triangles();
         for t in 0..(triangles.len() / 3) {
             indices.push(triangles[3 * t] as u32);
             indices.push(triangles[3 * t + 1] as u32);
