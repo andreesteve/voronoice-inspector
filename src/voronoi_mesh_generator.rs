@@ -16,28 +16,6 @@ pub struct VoronoiMeshGenerator<'a> {
 }
 
 impl VoronoiMeshGenerator<'_> {
-    #[allow(dead_code)]
-    pub fn build_circumcenters_mesh(&self) -> Mesh {
-        let positions: Vec<[f32; 3]> = utils::to_f32_vec(self.voronoi.vertices());
-        let num_of_vertices = positions.len();
-        let normals: Vec<[f32; 3]> = vec![[0.0, 1.0, 0.0]; num_of_vertices];
-        let uvs: Vec<[f32; 2]> = vec![[0.0, 0.0]; num_of_vertices];
-        let colors: Vec<[f32; 3]> = (0..num_of_vertices)
-            .map(self.coloring)
-            .map(utils::color_to_f32_vec)
-            .collect();
-
-        let indices = (0..num_of_vertices).map(|e| e as u32).collect();
-
-        let mut mesh = Mesh::new(self.topology);
-        mesh.set_indices(Some(Indices::U32(indices)));
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh.set_attribute("Vertex_Color", colors);
-        mesh
-    }
-
     pub fn build_delauney_mesh(&self) -> Mesh {
         let positions: Vec<[f32; 3]> = utils::to_f32_vec(self.voronoi.sites());
         let num_of_vertices = positions.len();
@@ -94,9 +72,9 @@ impl VoronoiMeshGenerator<'_> {
         match self.topology {
             PrimitiveTopology::LineList => {
                 self.voronoi.iter_cells()
-                .flat_map(|c| into_line_list_wrap(c.iter_triangles()))
-                .map(|t| t as u32)
-                .collect::<Vec<u32>>()
+                    .flat_map(|c| into_line_list_wrap(c.iter_triangles()))
+                    .map(|t| t as u32)
+                    .collect::<Vec<u32>>()
             },
 
             PrimitiveTopology::PointList | PrimitiveTopology::TriangleList => {

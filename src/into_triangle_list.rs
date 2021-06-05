@@ -1,3 +1,8 @@
+/// Iterates an array creating a triangle list through fanning.
+/// The first element in the array is the pivot point by which fanning occurs.
+/// # Examples
+/// [1, 2, 3, 4].iter().into_triangle_list()
+/// Represents a triangle list in which 1 is the fanning pivot, so the following triangles will be returned [3, 1, 2] and [4, 1, 3]
 #[must_use = "iterators are lazy and do nothing unless consumed"]
 pub struct IntoTriangleListIter<I, A> {
     first: Option<A>,
@@ -64,7 +69,7 @@ mod tests {
     use super::*;
     #[test]
     fn into_triangle_list_expect_triangles() {
-        let mut iter = [1, 2, 3, 4].iter().into_triangle_list();
+        let mut iter = [1, 2, 3, 4, 5].iter().into_triangle_list();
         // first triangle
         assert_eq!(Some(&3), iter.next());
         assert_eq!(Some(&1), iter.next());
@@ -74,6 +79,11 @@ mod tests {
         assert_eq!(Some(&4), iter.next());
         assert_eq!(Some(&1), iter.next());
         assert_eq!(Some(&3), iter.next());
+
+        // thrid triangle
+        assert_eq!(Some(&5), iter.next());
+        assert_eq!(Some(&1), iter.next());
+        assert_eq!(Some(&4), iter.next());
 
         // nothing
         assert_eq!(None, iter.next());

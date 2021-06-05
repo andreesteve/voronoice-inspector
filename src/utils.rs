@@ -1,10 +1,16 @@
 use bevy::prelude::Color;
 use voronoice::Point;
 
+#[inline]
+pub fn point_to_f32_vec(p: &Point) -> [f32; 3] {
+    [p.y as f32, 0.0, p.x as f32]
+}
+
+#[inline]
 pub fn to_f32_vec(p: &Vec<Point>) -> Vec<[f32; 3]> {
     p
         .iter()
-        .map(|c| { [c.y as f32, 0.0, c.x as f32] })
+        .map(|c| { point_to_f32_vec(c) })
         .collect()
 }
 

@@ -7,9 +7,11 @@ mod pipeline;
 mod into_triangle_list;
 mod utils;
 mod voronoi_mesh_generator;
+mod voronoi_cell_mesh_generator;
 
 use pipeline::*;
 use voronoi_mesh_generator::*;
+use voronoi_cell_mesh_generator::VoronoiCellMeshGenerator;
 
 const STRING_UI_COUNT: usize = 8;
 
@@ -76,6 +78,28 @@ fn spawn_voronoi(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, voro
     ;
 
     println!("Generated new voronoi meshes in {:?}", start.elapsed());
+}
+
+struct DisplayVoronoiCell;
+
+fn spawn_voronoi_cell(commands: &mut Commands, meshes: &mut ResMut<Assets<Mesh>>, cell: &VoronoiCell) {
+    let mesh_generator = VoronoiCellMeshGenerator {
+        cell: cell,
+        coloring: color_red
+    };
+
+    commands
+        .spawn(
+        ColorBundle {
+                mesh: meshes.add(mesh_generator.build_voronoi_mesh()),
+                transform: Transform::from_translation(Vec3::new(
+                    0.0,
+                    0.0,
+                    0.0,
+                )),
+                ..Default::default()
+        })
+        .with(DisplayVoronoiCell);
 }
 
 const CAMERA_Y: f32 = 6.0;
@@ -268,7 +292,9 @@ struct State {
     forward_list: LinkedList<Voronoi>,
     bounding_box: BoundingBox,
     site_type: SiteType,
-    show_boundingbox: bool
+    show_boundingbox: bool,
+    path_start_site: Option<usize>,
+    path_end_site: Option<usize>,
 }
 impl State {
     fn replace(&mut self, v: Option<Voronoi>) -> Option<&Voronoi> {
@@ -319,6 +345,8 @@ impl State {
         self.forward_list.clear();
         self.bounding_box = BoundingBox::new_centered_square(2.0);
         self.show_boundingbox = false;
+        self.path_start_site = None;
+        self.path_end_site = None;
     }
 
     fn new_builder(&self) -> VoronoiBuilder {
@@ -377,11 +405,12 @@ fn handle_input(
     mut state: Local<State>,
     input: Res<Input<KeyCode>>,
     mouse_button_input: Res<Input<MouseButton>>,
-    meshes: ResMut<Assets<Mesh>>,
+    mut meshes: ResMut<Assets<Mesh>>,
     commands: &mut Commands,
     query: Query<Entity, With<VertexColor>>,
     mut query_text: Query<&mut Text, With<StatusDisplay>>,
     mut query_box: Query<(&mut Transform, &mut Visible), With<BoundingBox>>,
+    query_path: Query<Entity, With<DisplayVoronoiCell>>,
     mouse_query: Query<&Mouse>) {
 
     let mut respawn = false;
@@ -471,19 +500,48 @@ fn handle_input(
         };
 
         if mouse_button_input.just_pressed(MouseButton::Left) {
-            // do not let adding points extremelly close as this degenerate triangulation
-            if closest_site.is_none() || closest_site.unwrap().1 > 0.001 {
-                state.add_site_to_voronoi(point);
-                info!("Site added: {:?}", mouse.world_pos);
-                respawn = true;
+            if input.pressed(KeyCode::LShift) {
+                // LeftShift + left button sets the starting path
+                if let Some((site, _)) = closest_site {
+                    state.path_start_site = Some(site);
+                }
+            } else {
+                // do not let adding points extremelly close as this degenerate triangulation
+                if closest_site.is_none() || closest_site.unwrap().1 > 0.001 {
+                    state.add_site_to_voronoi(point);
+                    info!("Site added: {:?}", mouse.world_pos);
+                    respawn = true;
+                }
             }
         } else if mouse_button_input.just_pressed(MouseButton::Right) && num_of_sites > 3 { // don't let it go below 3 as it won't triangulate
-            // if right click, get closest point and remove it
-            if let Some((i, dist)) = closest_site {
-                if dist < 0.2 {
-                    state.remove_site_to_voronoi(i);
-                    info!("Site removed: {}", i);
-                    respawn = true;
+        // LeftShift + right button sets the ending path
+            if input.pressed(KeyCode::LShift) {
+                if let Some(path_start_size) = state.path_start_site {
+                    if let Some((site, _)) = closest_site {
+                        state.path_end_site = Some(site);
+
+                        // remove existing path path
+                        for e in query_path.iter() {
+                            commands.despawn(e);
+                        }
+
+                        // add new path
+                        if let Some(v) = state.voronoi.as_ref() {
+                            for neighbor in v.cell(path_start_size).iter_neighbors() {
+                                let cell = v.cell(neighbor);
+                                spawn_voronoi_cell(commands, &mut meshes, &cell);
+                            }
+                        }
+                    }
+                }
+            } else {
+                // if right click, get closest point and remove it
+                if let Some((i, dist)) = closest_site {
+                    if dist < 0.2 {
+                        state.remove_site_to_voronoi(i);
+                        info!("Site removed: {}", i);
+                        respawn = true;
+                    }
                 }
             }
         } else if mouse_button_input.just_pressed(MouseButton::Middle) {
@@ -546,6 +604,8 @@ fn handle_input(
 
         // may not exist after clean up
         if let Some(voronoi) = &state.voronoi {
+            spawn_voronoi_cell(commands, &mut meshes, &voronoi.cell(0));
+
             spawn_voronoi(commands, meshes, voronoi, &state.voronoi_opts);
         }
     }
