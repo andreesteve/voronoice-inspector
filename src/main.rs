@@ -3,13 +3,11 @@ use bevy::{prelude::*, render::{camera::{Camera, PerspectiveProjection}, mesh::I
 use rand::Rng;
 use voronoice::*;
 
-mod pipeline;
 mod into_triangle_list;
 mod utils;
 mod voronoi_mesh_generator;
 mod voronoi_cell_mesh_generator;
 
-use pipeline::*;
 use voronoi_mesh_generator::*;
 use voronoi_cell_mesh_generator::VoronoiCellMeshGenerator;
 
@@ -18,7 +16,6 @@ const STRING_UI_COUNT: usize = 8;
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
-        .add_plugin(VertexColorPlugin)
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.))) //background
         .add_startup_system(setup.system())
         .add_system(calculate_mouse_world_coords.system())
@@ -49,6 +46,8 @@ impl Default for VoronoiMeshOptions {
     }
 }
 
+struct Object;
+
 fn spawn_voronoi(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, voronoi: &Voronoi, options: &VoronoiMeshOptions) {
     let start = Instant::now();
     let voronoi_generator = VoronoiMeshGenerator { voronoi: &voronoi, coloring: color_red, topology: options.voronoi_topoloy };
@@ -56,7 +55,7 @@ fn spawn_voronoi(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, voron
 
     commands
         .spawn_bundle(
-        ColorBundle {
+            PbrBundle {
                 mesh: meshes.add(voronoi_generator.build_voronoi_mesh()),
                 transform: Transform::from_translation(Vec3::new(
                     0.0,
@@ -64,11 +63,12 @@ fn spawn_voronoi(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, voron
                     0.0,
                 )),
                 ..Default::default()
-            });
+            })
+            .insert(Object);
 
     commands
         .spawn_bundle(
-            ColorBundle {
+            PbrBundle {
                     mesh: meshes.add(triangle_generator.build_delauney_mesh()),
                     transform: Transform::from_translation(Vec3::new(
                         0.0,
@@ -76,14 +76,15 @@ fn spawn_voronoi(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, voron
                         0.0,
                     )),
                     ..Default::default()
-        });
+        })
+        .insert(Object);
 
     println!("Generated new voronoi meshes in {:?}", start.elapsed());
 }
 
 struct DisplayVoronoiCell;
 
-fn spawn_voronoi_cell(mut commands: Commands, meshes: &mut ResMut<Assets<Mesh>>, cell: &VoronoiCell) {
+fn spawn_voronoi_cell(commands: &mut Commands, meshes: &mut ResMut<Assets<Mesh>>, cell: &VoronoiCell) {
     let mesh_generator = VoronoiCellMeshGenerator {
         cell: cell,
         coloring: color_red
@@ -91,7 +92,7 @@ fn spawn_voronoi_cell(mut commands: Commands, meshes: &mut ResMut<Assets<Mesh>>,
 
     commands
         .spawn_bundle(
-        ColorBundle {
+            PbrBundle {
                 mesh: meshes.add(mesh_generator.build_voronoi_mesh()),
                 transform: Transform::from_translation(Vec3::new(
                     0.0,
@@ -100,13 +101,14 @@ fn spawn_voronoi_cell(mut commands: Commands, meshes: &mut ResMut<Assets<Mesh>>,
                 )),
                 ..Default::default()
         })
-        .insert(DisplayVoronoiCell);
+        .insert(DisplayVoronoiCell)
+        .insert(Object);
 }
 
 const CAMERA_Y: f32 = 6.0;
 struct StatusDisplay;
 
-fn add_display_lines(commands: &mut ChildBuilder, font: &Handle<Font>) {
+fn add_display_lines(commands: &mut ChildBuilder, font: Handle<Font>) {
     commands.spawn_bundle(TextBundle {
         style: Style {
             size: Size::new(Val::Px(500.0), Val::Px(40.0)),
@@ -117,7 +119,7 @@ fn add_display_lines(commands: &mut ChildBuilder, font: &Handle<Font>) {
             TextStyle {
                 font_size: 25.0,
                 color: Color::WHITE,
-                font: font.clone(),
+                font: font,
                 ..Default::default()
             },
             TextAlignment::default()),
@@ -141,6 +143,7 @@ fn setup(
     camera_t.rotate(Quat::from_rotation_ypr(0.0, 0.0, 180f32.to_radians()));
 
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font_handle2 = font_handle.clone();
     commands.spawn_bundle(NodeBundle{
         style: Style {
             size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
@@ -150,9 +153,10 @@ fn setup(
         },
         material: materials.add(Color::NONE.into()),
         ..Default::default()
-    }).insert(|parent| {
+    }).insert(|mut parent| {
+        let font = font_handle2;
         for _i in 0..STRING_UI_COUNT {
-            add_display_lines(parent, &font_handle);
+            add_display_lines(&mut parent, font.clone());
         }
     });
 
@@ -187,7 +191,8 @@ fn setup(
             mesh: meshes.add(get_bounding_box(2.0)),
             ..Default::default()
         })
-        .insert(BoundingBox::new_centered_square(43.0)); // this value does not matter
+        .insert(BoundingBox::new_centered_square(43.0)) // this value does not matter
+        .insert(Object);
 }
 
 fn get_bounding_box(size: f32) -> Mesh {
@@ -240,7 +245,7 @@ fn calculate_mouse_world_coords(mut mouse_query: Query<(&mut Mouse, &mut Text, &
         let mut world_pos = -camera_transform.translation.y * (ray / ray.y);
         world_pos.y = 0.0;
         mouse.world_pos = world_pos;
-        text.sections.first().unwrap().value = format!("({:.2}, {:.2})", mouse.world_pos.z, mouse.world_pos.x);
+        text.sections[0].value = format!("({:.2}, {:.2})", mouse.world_pos.z, mouse.world_pos.x);
 
         text_style.position.left = Val::Px(cursor_screen_pos.x + MOUSE_TEXT_OFFSET);
         text_style.position.top = Val::Px(window.height() - cursor_screen_pos.y + MOUSE_TEXT_OFFSET);
@@ -410,7 +415,7 @@ fn handle_input(
     mouse_button_input: Res<Input<MouseButton>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut commands: Commands,
-    query: Query<Entity, With<VertexColor>>,
+    query: Query<Entity, With<Object>>,
     mut query_text: Query<&mut Text, With<StatusDisplay>>,
     mut query_box: Query<(&mut Transform, &mut Visible), With<BoundingBox>>,
     query_path: Query<Entity, With<DisplayVoronoiCell>>,
@@ -532,7 +537,7 @@ fn handle_input(
                         if let Some(v) = state.voronoi.as_ref() {
                             for s in v.cell(path_start_site).iter_path(&point) {
                                 let cell = v.cell(s);
-                                spawn_voronoi_cell(commands, &mut meshes, &cell);
+                                spawn_voronoi_cell(&mut commands, &mut meshes, &cell);
                             }
                         }
                     }
@@ -607,7 +612,7 @@ fn handle_input(
 
         // may not exist after clean up
         if let Some(voronoi) = &state.voronoi {
-            spawn_voronoi_cell(commands, &mut meshes, &voronoi.cell(0));
+            spawn_voronoi_cell(&mut commands, &mut meshes, &voronoi.cell(0));
 
             spawn_voronoi(commands, meshes, voronoi, &state.voronoi_opts);
         }
@@ -629,6 +634,6 @@ fn handle_input(
     ];
 
     for (mut text, update) in query_text.iter_mut().zip(&updates) {
-        text.sections.first().unwrap().value = update.clone();
+        text.sections[0].value = update.clone();
     }
 }
