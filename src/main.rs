@@ -3,11 +3,13 @@ use bevy::{prelude::*, render::{camera::{Camera, PerspectiveProjection}, mesh::I
 use rand::Rng;
 use voronoice::*;
 
+mod pipeline;
 mod into_triangle_list;
 mod utils;
 mod voronoi_mesh_generator;
 mod voronoi_cell_mesh_generator;
 
+use pipeline::*;
 use voronoi_mesh_generator::*;
 use voronoi_cell_mesh_generator::VoronoiCellMeshGenerator;
 
@@ -16,6 +18,7 @@ const STRING_UI_COUNT: usize = 8;
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
+        .add_plugin(VertexColorPlugin)
         .insert_resource(ClearColor(Color::rgb(0., 0., 0.))) //background
         .add_startup_system(setup.system())
         .add_system(calculate_mouse_world_coords.system())
@@ -55,7 +58,7 @@ fn spawn_voronoi(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, voron
 
     commands
         .spawn_bundle(
-            PbrBundle {
+            ColorBundle {
                 mesh: meshes.add(voronoi_generator.build_voronoi_mesh()),
                 transform: Transform::from_translation(Vec3::new(
                     0.0,
@@ -68,7 +71,7 @@ fn spawn_voronoi(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, voron
 
     commands
         .spawn_bundle(
-            PbrBundle {
+            ColorBundle {
                     mesh: meshes.add(triangle_generator.build_delauney_mesh()),
                     transform: Transform::from_translation(Vec3::new(
                         0.0,
@@ -92,7 +95,7 @@ fn spawn_voronoi_cell(commands: &mut Commands, meshes: &mut ResMut<Assets<Mesh>>
 
     commands
         .spawn_bundle(
-            PbrBundle {
+            ColorBundle {
                 mesh: meshes.add(mesh_generator.build_voronoi_mesh()),
                 transform: Transform::from_translation(Vec3::new(
                     0.0,
@@ -133,7 +136,8 @@ fn add_display_lines(commands: &mut ChildBuilder, font: Handle<Font>) {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut color_materials: ResMut<Assets<ColorMaterial>>,
+    mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let camera_pos = Vec3::new(0.000001, CAMERA_Y, 0.0);
@@ -151,7 +155,7 @@ fn setup(
             flex_direction: FlexDirection::ColumnReverse,
             ..Default::default()
         },
-        material: materials.add(Color::NONE.into()),
+        material: color_materials.add(Color::NONE.into()),
         ..Default::default()
     }).with_children(|mut parent| {
         let font = font_handle2;
@@ -187,7 +191,7 @@ fn setup(
         })
         .insert(Mouse::default());
 
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn_bundle(ColorBundle {
             mesh: meshes.add(get_bounding_box(2.0)),
             ..Default::default()
         })

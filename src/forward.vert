@@ -11,7 +11,7 @@ layout(location = 1) out vec3 v_Normal;
 layout(location = 2) out vec2 v_Uv;
 layout(location = 3) out vec3 v_Color;
 
-layout(set = 0, binding = 0) uniform Camera {
+layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
 };
 

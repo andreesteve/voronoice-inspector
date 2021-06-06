@@ -9,13 +9,9 @@ use bevy::{
          },
         renderer::RenderResources,
         pipeline::{
-            RenderPipeline,
-            BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
-            CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, PipelineDescriptor,
-            RasterizationStateDescriptor, StencilStateDescriptor, StencilStateFaceDescriptor,
+            RenderPipeline, PipelineDescriptor
         },
         shader::{Shader, ShaderStage, ShaderStages},
-        texture::TextureFormat,
     }
 };
 
@@ -24,40 +20,7 @@ pub const FORWARD_PIPELINE_HANDLE: HandleUntyped =
 
 pub(crate) fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
-        rasterization_state: Some(RasterizationStateDescriptor {
-            front_face: FrontFace::Ccw,
-            cull_mode: CullMode::Back,
-            depth_bias: 0,
-            depth_bias_slope_scale: 0.0,
-            depth_bias_clamp: 0.0,
-            clamp_depth: false,
-        }),
-        depth_stencil_state: Some(DepthStencilStateDescriptor {
-            format: TextureFormat::Depth32Float,
-            depth_write_enabled: true,
-            depth_compare: CompareFunction::Less,
-            stencil: StencilStateDescriptor {
-                front: StencilStateFaceDescriptor::IGNORE,
-                back: StencilStateFaceDescriptor::IGNORE,
-                read_mask: 0,
-                write_mask: 0,
-            },
-        }),
-        color_states: vec![ColorStateDescriptor {
-            format: TextureFormat::default(),
-            color_blend: BlendDescriptor {
-                src_factor: BlendFactor::SrcAlpha,
-                dst_factor: BlendFactor::OneMinusSrcAlpha,
-                operation: BlendOperation::Add,
-            },
-            alpha_blend: BlendDescriptor {
-                src_factor: BlendFactor::One,
-                dst_factor: BlendFactor::One,
-                operation: BlendOperation::Add,
-            },
-            write_mask: ColorWrite::ALL,
-        }],
-        ..PipelineDescriptor::new(ShaderStages {
+        ..PipelineDescriptor::default_config(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
                 include_str!("forward.vert"),
@@ -77,8 +40,8 @@ impl Plugin for VertexColorPlugin {
     fn build(&self, app: &mut AppBuilder) {
         const COLOR_NODE: &str = "my_material_with_vertex_color_support";
         app.add_asset::<VertexColor>();
-        let resources = app.resources();
-        let mut graph = resources.get_mut::<RenderGraph>().unwrap();
+
+        let mut graph = app.world_mut().get_resource_mut::<RenderGraph>().unwrap();
 
         graph.add_system_node(
             COLOR_NODE,
@@ -92,14 +55,16 @@ impl Plugin for VertexColorPlugin {
             )
             .unwrap();
 
-        let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
-        let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
+        let mut shaders = app.world_mut().get_resource_mut::<Assets<Shader>>().unwrap();
+        let pipeline = build_forward_pipeline(&mut shaders);
+
+        let mut pipelines = app.world_mut().get_resource_mut::<Assets<PipelineDescriptor>>().unwrap();
         pipelines.set_untracked(
             FORWARD_PIPELINE_HANDLE,
-            build_forward_pipeline(&mut shaders),
+            pipeline,
         );
 
-        resources.get_mut::<Assets<VertexColor>>()
+        app.world_mut().get_resource_mut::<Assets<VertexColor>>()
             .unwrap()
             .add(Default::default());
     }
