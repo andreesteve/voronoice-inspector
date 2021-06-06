@@ -516,7 +516,7 @@ fn handle_input(
         } else if mouse_button_input.just_pressed(MouseButton::Right) && num_of_sites > 3 { // don't let it go below 3 as it won't triangulate
         // LeftShift + right button sets the ending path
             if input.pressed(KeyCode::LShift) {
-                if let Some(path_start_size) = state.path_start_site {
+                if let Some(path_start_site) = state.path_start_site {
                     if let Some((site, _)) = closest_site {
                         state.path_end_site = Some(site);
 
@@ -527,8 +527,8 @@ fn handle_input(
 
                         // add new path
                         if let Some(v) = state.voronoi.as_ref() {
-                            for neighbor in v.cell(path_start_size).iter_neighbors() {
-                                let cell = v.cell(neighbor);
+                            for s in v.cell(path_start_site).iter_path(&point) {
+                                let cell = v.cell(s);
                                 spawn_voronoi_cell(commands, &mut meshes, &cell);
                             }
                         }
