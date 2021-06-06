@@ -1,13 +1,13 @@
 [package]
 name = "voronoice-inspector"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Andre Esteve <andreesteve@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-bevy = "0.4.0"
 rand = "0.8.1"
-voronoice = { path = "../voronoice", version = "0.0.1" }
+bevy = { version = "0.5.0", features = ["dynamic"] }
+voronoice = { path = "../voronoice", version = "0.1.0" }
 
 [profile.dev.package."*"]
 opt-level = 3

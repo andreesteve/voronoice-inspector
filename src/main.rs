@@ -19,7 +19,7 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_plugin(VertexColorPlugin)
-        .add_resource(ClearColor(Color::rgb(0., 0., 0.))) //background
+        .insert_resource(ClearColor(Color::rgb(0., 0., 0.))) //background
         .add_startup_system(setup.system())
         .add_system(calculate_mouse_world_coords.system())
         .add_system(handle_input.system())
@@ -49,13 +49,13 @@ impl Default for VoronoiMeshOptions {
     }
 }
 
-fn spawn_voronoi(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, voronoi: &Voronoi, options: &VoronoiMeshOptions) {
+fn spawn_voronoi(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, voronoi: &Voronoi, options: &VoronoiMeshOptions) {
     let start = Instant::now();
     let voronoi_generator = VoronoiMeshGenerator { voronoi: &voronoi, coloring: color_red, topology: options.voronoi_topoloy };
     let triangle_generator = VoronoiMeshGenerator { voronoi: &voronoi, coloring: color_white, topology: options.delauney_topoloy };
 
     commands
-        .spawn(
+        .spawn_bundle(
         ColorBundle {
                 mesh: meshes.add(voronoi_generator.build_voronoi_mesh()),
                 transform: Transform::from_translation(Vec3::new(
@@ -64,8 +64,10 @@ fn spawn_voronoi(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, voro
                     0.0,
                 )),
                 ..Default::default()
-            })
-        .spawn(
+            });
+
+    commands
+        .spawn_bundle(
             ColorBundle {
                     mesh: meshes.add(triangle_generator.build_delauney_mesh()),
                     transform: Transform::from_translation(Vec3::new(
@@ -74,22 +76,21 @@ fn spawn_voronoi(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, voro
                         0.0,
                     )),
                     ..Default::default()
-        })
-    ;
+        });
 
     println!("Generated new voronoi meshes in {:?}", start.elapsed());
 }
 
 struct DisplayVoronoiCell;
 
-fn spawn_voronoi_cell(commands: &mut Commands, meshes: &mut ResMut<Assets<Mesh>>, cell: &VoronoiCell) {
+fn spawn_voronoi_cell(mut commands: Commands, meshes: &mut ResMut<Assets<Mesh>>, cell: &VoronoiCell) {
     let mesh_generator = VoronoiCellMeshGenerator {
         cell: cell,
         coloring: color_red
     };
 
     commands
-        .spawn(
+        .spawn_bundle(
         ColorBundle {
                 mesh: meshes.add(mesh_generator.build_voronoi_mesh()),
                 transform: Transform::from_translation(Vec3::new(
@@ -99,48 +100,48 @@ fn spawn_voronoi_cell(commands: &mut Commands, meshes: &mut ResMut<Assets<Mesh>>
                 )),
                 ..Default::default()
         })
-        .with(DisplayVoronoiCell);
+        .insert(DisplayVoronoiCell);
 }
 
 const CAMERA_Y: f32 = 6.0;
 struct StatusDisplay;
 
 fn add_display_lines(commands: &mut ChildBuilder, font: &Handle<Font>) {
-    commands.spawn(TextBundle {
+    commands.spawn_bundle(TextBundle {
         style: Style {
             size: Size::new(Val::Px(500.0), Val::Px(40.0)),
             ..Default::default()
         },
-        text: Text {
-            value: "".to_string(),
-            font: font.clone(),
-            style: TextStyle {
+        text: Text::with_section(
+            "",
+            TextStyle {
                 font_size: 25.0,
                 color: Color::WHITE,
+                font: font.clone(),
                 ..Default::default()
             },
-        },
+            TextAlignment::default()),
         ..Default::default()
     })
-    .with(StatusDisplay);
+    .insert(StatusDisplay);
 }
 
 // right hand
 // triangulation anti-clockwise
 fn setup(
-    commands: &mut Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let camera_pos = Vec3::new(0.000001, CAMERA_Y, 0.0);
     let mut camera_t = Transform::from_translation(camera_pos)
-        .looking_at(Vec3::default(), Vec3::unit_y());
+        .looking_at(Vec3::default(), Vec3::Y);
     // roll camera so Z point up, and X right
     camera_t.rotate(Quat::from_rotation_ypr(0.0, 0.0, 180f32.to_radians()));
 
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn(NodeBundle{
+    commands.spawn_bundle(NodeBundle{
         style: Style {
             size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
             //align_content: AlignContent::Center,
@@ -149,42 +150,44 @@ fn setup(
         },
         material: materials.add(Color::NONE.into()),
         ..Default::default()
-    }).with_children(|parent| {
+    }).insert(|parent| {
         for _i in 0..STRING_UI_COUNT {
             add_display_lines(parent, &font_handle);
         }
     });
 
-    commands
-        // ui camera
-        .spawn(CameraUiBundle::default())
-        // camera
-        .spawn(Camera3dBundle {
+    // ui camera
+    commands.spawn_bundle(UiCameraBundle::default());
+
+    // camera
+    commands.spawn_bundle(PerspectiveCameraBundle {
             transform: camera_t,
             ..Default::default()
-        })
-        .spawn(TextBundle {
+        });
+
+    commands.spawn_bundle(TextBundle {
             style: Style {
                 position_type: PositionType::Absolute,
                 ..Default::default()
             },
-            text: Text {
-                value: "(0, 0)".to_string(),
-                font: font_handle,
-                style: TextStyle {
-                    font_size: 25.0,
-                    color: Color::WHITE,
-                    ..Default::default()
-                },
-            },
+            text: Text::with_section(
+                    "(0, 0)".to_string(),
+                TextStyle {
+                        font: font_handle,
+                        font_size: 25.0,
+                        color: Color::WHITE,
+                        ..Default::default()
+                    },
+                    TextAlignment::default()),
             ..Default::default()
         })
-        .with(Mouse::default())
-        .spawn(PbrBundle {
+        .insert(Mouse::default());
+
+    commands.spawn_bundle(PbrBundle {
             mesh: meshes.add(get_bounding_box(2.0)),
             ..Default::default()
         })
-        .with(BoundingBox::new_centered_square(43.0)); // this value does not matter
+        .insert(BoundingBox::new_centered_square(43.0)); // this value does not matter
 }
 
 fn get_bounding_box(size: f32) -> Mesh {
@@ -221,7 +224,7 @@ fn calculate_mouse_world_coords(mut mouse_query: Query<(&mut Mouse, &mut Text, &
 
     for ((camera_transform, camera), window) in query.iter().zip(windows.iter()) {
         let screen_size = Vec2::from([window.width() as f32, window.height() as f32]);
-        let cursor_screen_pos = window.cursor_position().unwrap_or(Vec2::zero());
+        let cursor_screen_pos = window.cursor_position().unwrap_or(Vec2::ZERO);
 
         // normalize cursor coords (-1 to 1)
         let cursor_pos_normalized = (2.0 * (cursor_screen_pos / screen_size) - Vec2::new(1.0, 1.0)).extend(1.0);
@@ -237,7 +240,7 @@ fn calculate_mouse_world_coords(mut mouse_query: Query<(&mut Mouse, &mut Text, &
         let mut world_pos = -camera_transform.translation.y * (ray / ray.y);
         world_pos.y = 0.0;
         mouse.world_pos = world_pos;
-        text.value = format!("({:.2}, {:.2})", mouse.world_pos.z, mouse.world_pos.x);
+        text.sections.first().unwrap().value = format!("({:.2}, {:.2})", mouse.world_pos.z, mouse.world_pos.x);
 
         text_style.position.left = Val::Px(cursor_screen_pos.x + MOUSE_TEXT_OFFSET);
         text_style.position.top = Val::Px(window.height() - cursor_screen_pos.y + MOUSE_TEXT_OFFSET);
@@ -406,7 +409,7 @@ fn handle_input(
     input: Res<Input<KeyCode>>,
     mouse_button_input: Res<Input<MouseButton>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    commands: &mut Commands,
+    mut commands: Commands,
     query: Query<Entity, With<VertexColor>>,
     mut query_text: Query<&mut Text, With<StatusDisplay>>,
     mut query_box: Query<(&mut Transform, &mut Visible), With<BoundingBox>>,
@@ -522,7 +525,7 @@ fn handle_input(
 
                         // remove existing path path
                         for e in query_path.iter() {
-                            commands.despawn(e);
+                            commands.entity(e).despawn();
                         }
 
                         // add new path
@@ -599,7 +602,7 @@ fn handle_input(
 
     if respawn {
         for e in query.iter() {
-            commands.despawn(e);
+            commands.entity(e).despawn();
         }
 
         // may not exist after clean up
@@ -626,6 +629,6 @@ fn handle_input(
     ];
 
     for (mut text, update) in query_text.iter_mut().zip(&updates) {
-        text.value = update.clone();
+        text.sections.first().unwrap().value = update.clone();
     }
 }
