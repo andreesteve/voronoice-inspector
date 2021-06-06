@@ -365,6 +365,7 @@ impl State {
     fn new_builder(&self) -> VoronoiBuilder {
         VoronoiBuilder::default()
             .set_bounding_box(self.bounding_box.clone())
+            .set_clip_behavior(self.clip_behavior)
     }
 
     fn new_voronoi(&mut self, size: usize) {
