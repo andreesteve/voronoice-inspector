@@ -232,7 +232,8 @@ fn calculate_mouse_world_coords(mut mouse_query: Query<(&mut Mouse, &mut Text, &
         let cursor_screen_pos = window.cursor_position().unwrap_or(Vec2::ZERO);
 
         // normalize cursor coords (-1 to 1)
-        let cursor_pos_normalized = (2.0 * (cursor_screen_pos / screen_size) - Vec2::new(1.0, 1.0)).extend(1.0);
+        // extend z to 0 to project point on near plane when transforming it to world coords
+        let cursor_pos_normalized = (2.0 * (cursor_screen_pos / screen_size) - Vec2::new(1.0, 1.0)).extend(0.0);
         let view_matrix = camera_transform.compute_matrix();
         let screen_normal_coords_to_world = view_matrix * camera.projection_matrix.inverse();
 
