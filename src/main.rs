@@ -147,13 +147,13 @@ fn setup(
     commands.spawn_bundle(NodeBundle{
         style: Style {
             size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-            //align_content: AlignContent::Center,
+            align_content: AlignContent::Center,
             flex_direction: FlexDirection::ColumnReverse,
             ..Default::default()
         },
         material: materials.add(Color::NONE.into()),
         ..Default::default()
-    }).insert(|mut parent| {
+    }).with_children(|mut parent| {
         let font = font_handle2;
         for _i in 0..STRING_UI_COUNT {
             add_display_lines(&mut parent, font.clone());
