@@ -27,7 +27,7 @@ impl VoronoiMeshGenerator<'_> {
             .collect();
 
         let mut indices: Vec<u32> = vec![];
-        let triangles = self.voronoi.delaunay_triangles();
+        let triangles = &self.voronoi.triangulation().triangles;
         for t in 0..(triangles.len() / 3) {
             indices.push(triangles[3 * t] as u32);
             indices.push(triangles[3 * t + 1] as u32);
@@ -72,7 +72,7 @@ impl VoronoiMeshGenerator<'_> {
         match self.topology {
             PrimitiveTopology::LineList => {
                 self.voronoi.iter_cells()
-                    .flat_map(|c| into_line_list_wrap(c.iter_triangles()))
+                    .flat_map(|c| into_line_list_wrap(c.triangles().iter().copied()).collect::<Vec<usize>>())
                     .map(|t| t as u32)
                     .collect::<Vec<u32>>()
             },
@@ -80,7 +80,7 @@ impl VoronoiMeshGenerator<'_> {
             PrimitiveTopology::PointList | PrimitiveTopology::TriangleList => {
                 // if cells on hull are not closed, they will not render correctly in this mode
                 self.voronoi.iter_cells()
-                    .flat_map(|c| into_line_list(c.iter_triangles()))
+                    .flat_map(|c| into_line_list(c.triangles().iter().copied()).collect::<Vec<usize>>())
                     .map(|t| t as u32)
                     .into_triangle_list()
                     .collect::<Vec<u32>>()

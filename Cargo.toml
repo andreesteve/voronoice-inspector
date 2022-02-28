@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 rand = "0.8.1"
 bevy = { version = "0.5.0", features = ["dynamic"] }
-voronoice = { path = "../voronoice", version = "0.1.0" }
+voronoice = { path = "../voronoice" }
 
 [profile.dev.package."*"]
 opt-level = 3

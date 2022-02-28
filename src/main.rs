@@ -541,7 +541,7 @@ fn handle_input(
 
                         // add new path
                         if let Some(v) = state.voronoi.as_ref() {
-                            for s in v.cell(path_start_site).iter_path(&point) {
+                            for s in v.cell(path_start_site).iter_path(point) {
                                 let cell = v.cell(s);
                                 spawn_voronoi_cell(&mut commands, &mut meshes, &cell);
                             }
@@ -618,7 +618,8 @@ fn handle_input(
 
         // may not exist after clean up
         if let Some(voronoi) = &state.voronoi {
-            spawn_voronoi_cell(&mut commands, &mut meshes, &voronoi.cell(0));
+            // FIXME: bring this back conditionally when path is set
+            //spawn_voronoi_cell(&mut commands, &mut meshes, &voronoi.cell(0));
 
             spawn_voronoi(commands, meshes, voronoi, &state.voronoi_opts);
         }
